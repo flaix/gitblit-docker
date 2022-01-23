@@ -1,0 +1,313 @@
+# Build and upload Docker containers
+# for a new Gitblit release version
+
+name: Gitblit Docker release
+
+on:
+  workflow_call:
+    inputs:
+      gitblit_version:
+        description: 'Gitblit release version'
+        required: true
+        type: string
+      gitblit_sha:
+        description: 'SHA-256 sum of the Gitblit release tarball'
+        required: true
+        type: string
+    secrets:
+      INTER_REPO_OPS_PAT:
+        required: true
+      DOCKERHUB_GB_USER:
+        required: true
+      DOCKERHUB_GB_TOKEN:
+        required: true
+
+
+env:
+ GH_ORG: github
+
+
+jobs:
+
+# Create new Dockerfiles for the released version.
+# Build Docker images and push them to Docker Hub.
+
+  create-release:
+    name: Create new Gitblit Docker release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout gitblit-docker
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ env.GH_ORG }}/gitblit-docker
+          token: ${{ secrets.INTER_REPO_OPS_PAT }}
+          path: gitblit-docker
+          fetch-depth: 4
+          ref: master
+
+      - name: Fetch all remote branches
+        working-directory: gitblit-docker
+        run: |
+          git fetch --prune --depth=4 origin +refs/heads/*:refs/remotes/origin/*
+          git branch -a
+          git tag -l
+
+
+
+      - name: Get user from event
+        id: get-userid
+        run: |
+          if [ ${{github.event_name}} == "push" ] ; then
+            echo "REL_USER=${{ github.event.pusher.name }}" >> $GITHUB_ENV
+            echo "REL_USER_EMAIL=${{ github.event.pusher.email }}" >> $GITHUB_ENV
+            echo "::set-output name=userid::${{ github.event.pusher.name }}"
+            echo "::set-output name=alt_name::${{ github.event.pusher.name }}"
+            echo "::set-output name=alt_email::${{ github.event.pusher.email }}"
+
+          else
+            echo "::set-output name=userid::${{github.event.sender.login}}"
+            echo "::set-output name=alt_name::flaix"
+            echo "::set-output name=alt_email::2362065+flaix@users.noreply.github.com"
+          fi
+
+      - name: Determine Git user configuration
+        id: get-git-props
+        uses: flaix/set-git-user-action@v1
+        with:
+          path: gitblit-docker
+          userid: ${{ steps.get-userid.outputs.userid }}
+          alt_name: ${{ steps.get-userid.outputs.alt_name }}
+          alt_email: ${{ steps.get-userid.outputs.alt_email }}
+          set_git_config: global
+
+
+
+      - name: Create or checkout release branch
+        if: ${{ github.ref != 'refs/heads/release' }}
+        working-directory: gitblit-docker
+        run: |
+          git checkout -b release master
+          [ "$(git symbolic-ref -q --short HEAD)" == "release" ] || exit 1
+
+
+      - name: Generate Dockerfiles for release images
+        working-directory: gitblit-docker
+        run: |
+          generate/generate_dockerfile.sh -v ${{ inputs.gitblit_version }} --sha ${{ inputs.gitblit_sha }} --release --ubuntu > Dockerfile
+          generate/generate_dockerfile.sh -v ${{ inputs.gitblit_version }} --sha ${{ inputs.gitblit_sha }} --release --alpine > Dockerfile.alpine
+          echo "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S)" >> "${GITHUB_ENV}"
+
+
+      - name: Commit and push release branch
+        working-directory: gitblit-docker
+        run: |
+          git status
+          git add Dockerfile Dockerfile.alpine
+          git commit -m "Update to Gitblit release ${{ inputs.gitblit_version }}"
+          git push -f origin release
+
+
+
+
+  build:
+    name: Build and push Docker release images
+    runs-on: ubuntu-latest
+    needs: create-release
+    strategy:
+      matrix:
+        Dockerfile: [Dockerfile, Dockerfile.alpine]
+        rpc: [on, admin]
+
+    steps:
+      - name: Checkout gitblit-docker
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ env.GH_ORG }}/gitblit-docker
+          token: ${{ secrets.INTER_REPO_OPS_PAT }}
+          path: gitblit-docker
+          fetch-depth: 4
+          ref: release
+
+
+      - name: Gather build info
+        working-directory: gitblit-docker
+        run: |
+          echo "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S)" >> "${GITHUB_ENV}"
+
+          echo "GITBLIT_GIT_SHA=$(git rev-parse release)" >> "${GITHUB_ENV}"
+
+          gbver=${{ inputs.gitblit_version }}
+          echo "TAG_VER_MAJMIN=${gbver%.*}" >> "${GITHUB_ENV}"
+
+          if [ "${{ matrix.Dockerfile }}" == "Dockerfile" ] ; then
+              echo "TAG_ALPINE=" >> "${GITHUB_ENV}"
+          else
+              echo "TAG_ALPINE=-alpine" >> "${GITHUB_ENV}"
+          fi
+
+          if [ "${{ matrix.rpc }}" == "on" ] ; then
+            echo "TAG_RPC=" >> "${GITHUB_ENV}"
+            echo "BUILD_ARG=NONE=none" >> "${GITHUB_ENV}"
+          else
+            echo "TAG_RPC=-rpc" >> "${GITHUB_ENV}"
+            echo "BUILD_ARG=GITBLIT_RPC=admin" >> "${GITHUB_ENV}"
+          fi
+
+          if [ "${{ matrix.Dockerfile }}" == "Dockerfile" ] ; then
+            if [ "${{ matrix.rpc }}" == "on" ] ; then
+              echo "TAG_LATEST=latest" >> "${GITHUB_ENV}"
+            else
+              echo "TAG_LATEST=rpc" >> "${GITHUB_ENV}"
+            fi
+          else
+            if [ "${{ matrix.rpc }}" == "on" ] ; then
+              echo "TAG_LATEST=alpine" >> "${GITHUB_ENV}"
+            else
+              echo "TAG_LATEST=rpc-alpine" >> "${GITHUB_ENV}"
+            fi
+          fi
+
+
+      - name: Build release docker image
+        uses: docker/build-push-action@v2
+        with:
+          file: gitblit-docker/${{ matrix.Dockerfile }}
+          context: gitblit-docker
+          load: true
+          build-args: ${{ env.BUILD_ARG }}
+          tags: |
+            gitblit/gitblit:${{ inputs.gitblit_version }}-1${{ env.TAG_RPC }}${{ env.TAG_ALPINE }}
+            gitblit/gitblit:${{ inputs.gitblit_version }}${{ env.TAG_RPC }}${{ env.TAG_ALPINE }}
+            gitblit/gitblit:${{ env.TAG_VER_MAJMIN }}${{ env.TAG_RPC }}${{ env.TAG_ALPINE }}
+            gitblit/gitblit:${{ env.TAG_LATEST }}
+          labels: |
+            org.label-schema.vcs-ref=${{ env.GITBLIT_GIT_SHA }}
+            org.label-schema.build-date=${{ env.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ env.GITBLIT_GIT_SHA }}
+            org.opencontainers.image.created=${{ env.BUILD_DATE }}
+
+
+      - name: Install Goss for testing the docker image
+        uses: e1himself/goss-installation-action@v1.0.4
+        with:
+          version: 'v0.3.16'
+
+      - name: Test docker container - normal mode
+        working-directory: gitblit-docker
+        env:
+          GOSS_WAIT_OPTS: "-r 30s -s 5s > /dev/null"
+        run: |
+          dgoss run  -p 8080:8080  -p 8443:8443  gitblit/gitblit:${{ env.TAG_LATEST }}
+
+      - name: Test docker container - bind mount
+        working-directory: gitblit-docker
+        env:
+          GOSS_WAIT_OPTS: "-r 30s -s 5s > /dev/null"
+        run: |
+          mkdir gitblit-data
+          mkdir gitblit-data/etc
+          echo "This should not be overwritten" > gitblit-data/etc/gitblit.properties
+          echo "include = gitblit-docker.properties" >> gitblit-data/etc/gitblit.properties
+          sed -e '/mode: / d' -e '/group: / d' goss.yaml > gitblit-data/goss.yaml
+          cp goss_wait.yaml gitblit-data/
+          GOSS_FILES_PATH=gitblit-data dgoss run -p 8080:8080  -p 8443:8443 -v "$PWD/gitblit-data":/var/opt/gitblit gitblit/gitblit:${{ env.TAG_LATEST }}
+          [ -d gitblit-data/srv/git ] || exit 1
+          [ -f gitblit-data/etc/defaults.properties ] || exit 1
+          grep --quiet "This should not be overwritten"  gitblit-data/etc/gitblit.properties || exit 1
+          sudo rm -rf gitblit-data
+
+      - name: Test docker container - tmpfs
+        working-directory: gitblit-docker
+        env:
+          GOSS_WAIT_OPTS: "-r 30s -s 5s > /dev/null"
+        run: |
+          dgoss run  -p 8080:8080  -p 8443:8443 --tmpfs /var/opt/gitblit/temp gitblit/gitblit:${{ env.TAG_LATEST }}
+
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_GB_USER }}
+          password: ${{ secrets.DOCKERHUB_GB_TOKEN }}
+
+      - name: Push docker image to registry
+        uses: docker/build-push-action@v2
+        with:
+          file: gitblit-docker/${{ matrix.Dockerfile }}
+          context: gitblit-docker
+          push: true
+          build-args: ${{ env.BUILD_ARG }}
+          tags: |
+            gitblit/gitblit:${{ inputs.gitblit_version }}-1${{ env.TAG_RPC }}${{ env.TAG_ALPINE }}
+            gitblit/gitblit:${{ inputs.gitblit_version }}${{ env.TAG_RPC }}${{ env.TAG_ALPINE }}
+            gitblit/gitblit:${{ env.TAG_VER_MAJMIN }}${{ env.TAG_RPC }}${{ env.TAG_ALPINE }}
+            gitblit/gitblit:${{ env.TAG_LATEST }}
+          labels: |
+            org.label-schema.vcs-ref=${{ env.GITBLIT_GIT_SHA }}
+            org.label-schema.build-date=${{ env.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ env.GITBLIT_GIT_SHA }}
+            org.opencontainers.image.created=${{ env.BUILD_DATE }}
+
+
+  release:
+    name: Tag release and merge
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout gitblit-docker
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ env.GH_ORG }}/gitblit-docker
+          token: ${{ secrets.INTER_REPO_OPS_PAT }}
+          path: gitblit-docker
+          fetch-depth: 4
+          ref: release
+
+
+      - name: Fetch all remote branches
+        working-directory: gitblit-docker
+        run: |
+          git fetch --prune --depth=4 origin +refs/heads/*:refs/remotes/origin/*
+          git branch -a
+          git tag -l
+
+      - name: Get user from event
+        id: get-userid
+        run: |
+          if [ ${{github.event_name}} == "push" ] ; then
+            echo "REL_USER=${{ github.event.pusher.name }}" >> $GITHUB_ENV
+            echo "REL_USER_EMAIL=${{ github.event.pusher.email }}" >> $GITHUB_ENV
+            echo "::set-output name=userid::${{ github.event.pusher.name }}"
+            echo "::set-output name=alt_name::${{ github.event.pusher.name }}"
+            echo "::set-output name=alt_email::${{ github.event.pusher.email }}"
+
+          else
+            echo "::set-output name=userid::${{github.event.sender.login}}"
+            echo "::set-output name=alt_name::flaix"
+            echo "::set-output name=alt_email::2362065+flaix@users.noreply.github.com"
+          fi
+
+      - name: Determine Git user configuration
+        id: get-git-props
+        uses: flaix/set-git-user-action@v1
+        with:
+          path: gitblit-docker
+          userid: ${{ steps.get-userid.outputs.userid }}
+          alt_name: ${{ steps.get-userid.outputs.alt_name }}
+          alt_email: ${{ steps.get-userid.outputs.alt_email }}
+          set_git_config: global
+
+
+      - name: Tag and merge release
+        working-directory: gitblit-docker
+        run: |
+          git tag -a -m "Release docker image version {{ inputs.gitblit_version }}-1 for newly released Gitblit version {{ inputs.gitblit_version }}" v${{ inputs.gitblit_version }}-1
+          git push origin v${{ inputs.gitblit_version }}-1
+          git checkout master
+          git merge release
+          git push origin master
+
+          git push --delete origin release
+
