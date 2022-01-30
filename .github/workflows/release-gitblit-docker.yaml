@@ -17,6 +17,8 @@ on:
     secrets:
       INTER_REPO_OPS_PAT:
         required: true
+      GITBLIT_RELEASE_PAT:
+        required: true
       DOCKERHUB_GB_USER:
         required: true
       DOCKERHUB_GB_TOKEN:
@@ -24,7 +26,8 @@ on:
 
 
 env:
- GH_ORG: github
+ GH_ORG: flaix
+ GH_UPSTREAM_ORG: gitblit
 
 
 jobs:
@@ -310,4 +313,48 @@ jobs:
           git push origin master
 
           git push --delete origin release
+
+
+
+# Since we are not working in the real gitblit/gitblit project, now upstream
+# the release by pushing branches, tags and releases upstream.
+
+  upstream:
+    name: Upstream image release
+    runs-on: ubuntu-latest
+    needs: release
+
+    steps:
+      - name: Checkout gitblit-docker
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ env.GH_ORG }}/gitblit-docker
+          token: ${{ secrets.GITBLIT_RELEASE_PAT }}
+          path: gitblit-docker
+          fetch-depth: 4
+          ref: master
+
+
+      - name: Fetch all remote branches
+        working-directory: gitblit-docker
+        run: |
+          git fetch --prune --depth=4 origin +refs/heads/*:refs/remotes/origin/*
+
+
+
+      - name: Push upstream
+        working-directory: gitblit-docker
+        run: |
+          echo "Add upstream remote"
+          ups_url=$(git remote get-url origin | sed -e 's;github.com/${{ env.GH_ORG }}/;github.com/${{ env.GH_UPSTREAM_ORG }}/;')
+          git remote add upstream "$ups_url"
+          git fetch --prune --depth=4 upstream +refs/heads/*:refs/remotes/upstream/*
+          
+          echo "Push new master to upstream"
+          git push upstream refs/remotes/origin/master:refs/heads/master
+
+          echo "Push release tag v${{ inputs.gitblit_version }}-1 to upstream"
+          git push upstream v${{ inputs.gitblit_version }}-1
+
+
 
