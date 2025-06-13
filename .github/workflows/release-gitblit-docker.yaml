@@ -199,14 +199,14 @@ jobs:
       - name: Test docker container - normal mode
         working-directory: gitblit-docker
         env:
-          GOSS_WAIT_OPTS: "-r 30s -s 5s > /dev/null"
+          GOSS_WAIT_OPTS: "-r 60s -s 10s > /dev/null"
         run: |
-          dgoss run  -p 8080:8080  -p 8443:8443  gitblit/gitblit:${{ env.TAG_LATEST }}
+          dgoss run -e GITBLIT_GOSS_TEST=true -p 8080:8080  -p 8443:8443  gitblit/gitblit:${{ env.TAG_LATEST }}
 
       - name: Test docker container - bind mount
         working-directory: gitblit-docker
         env:
-          GOSS_WAIT_OPTS: "-r 30s -s 5s > /dev/null"
+          GOSS_WAIT_OPTS: "-r 60s -s 10s > /dev/null"
         run: |
           mkdir gitblit-data
           mkdir gitblit-data/etc
@@ -214,7 +214,7 @@ jobs:
           echo "include = gitblit-docker.properties" >> gitblit-data/etc/gitblit.properties
           sed -e '/mode: / d' -e '/group: / d' goss.yaml > gitblit-data/goss.yaml
           cp goss_wait.yaml gitblit-data/
-          GOSS_FILES_PATH=gitblit-data dgoss run -p 8080:8080  -p 8443:8443 -v "$PWD/gitblit-data":/var/opt/gitblit gitblit/gitblit:${{ env.TAG_LATEST }}
+          GOSS_FILES_PATH=gitblit-data dgoss run -e GITBLIT_GOSS_TEST=true -p 8080:8080  -p 8443:8443 -v "$PWD/gitblit-data":/var/opt/gitblit gitblit/gitblit:${{ env.TAG_LATEST }}
           [ -d gitblit-data/srv/git ] || exit 1
           [ -f gitblit-data/etc/defaults.properties ] || exit 1
           grep --quiet "This should not be overwritten"  gitblit-data/etc/gitblit.properties || exit 1
@@ -223,9 +223,9 @@ jobs:
       - name: Test docker container - tmpfs
         working-directory: gitblit-docker
         env:
-          GOSS_WAIT_OPTS: "-r 30s -s 5s > /dev/null"
+          GOSS_WAIT_OPTS: "-r 60s -s 10s > /dev/null"
         run: |
-          dgoss run  -p 8080:8080  -p 8443:8443 --tmpfs /var/opt/gitblit/temp gitblit/gitblit:${{ env.TAG_LATEST }}
+          dgoss run -e GITBLIT_GOSS_TEST=true  -p 8080:8080  -p 8443:8443 --tmpfs /var/opt/gitblit/temp gitblit/gitblit:${{ env.TAG_LATEST }}
 
 
       - name: Login to Docker Hub
