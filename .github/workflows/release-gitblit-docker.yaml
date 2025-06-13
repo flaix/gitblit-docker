@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout gitblit-docker
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.GH_ORG }}/gitblit-docker
           token: ${{ secrets.INTER_REPO_OPS_PAT }}
@@ -124,7 +124,7 @@ jobs:
 
     steps:
       - name: Checkout gitblit-docker
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.GH_ORG }}/gitblit-docker
           token: ${{ secrets.INTER_REPO_OPS_PAT }}
@@ -173,7 +173,7 @@ jobs:
 
 
       - name: Build release docker image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           file: gitblit-docker/${{ matrix.Dockerfile }}
           context: gitblit-docker
@@ -192,9 +192,9 @@ jobs:
 
 
       - name: Install Goss for testing the docker image
-        uses: e1himself/goss-installation-action@v1.0.4
+        uses: e1himself/goss-installation-action@v1.2.1
         with:
-          version: 'v0.3.16'
+          version: 'v0.4.9'
 
       - name: Test docker container - normal mode
         working-directory: gitblit-docker
@@ -229,13 +229,13 @@ jobs:
 
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_GB_USER }}
           password: ${{ secrets.DOCKERHUB_GB_TOKEN }}
 
       - name: Push docker image to registry
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           file: gitblit-docker/${{ matrix.Dockerfile }}
           context: gitblit-docker
@@ -260,7 +260,7 @@ jobs:
 
     steps:
       - name: Checkout gitblit-docker
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.GH_ORG }}/gitblit-docker
           token: ${{ secrets.INTER_REPO_OPS_PAT }}
@@ -326,7 +326,7 @@ jobs:
 
     steps:
       - name: Checkout gitblit-docker
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.GH_ORG }}/gitblit-docker
           token: ${{ secrets.GITBLIT_RELEASE_PAT }}
