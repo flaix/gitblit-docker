@@ -262,11 +262,11 @@ LABEL maintainer="James Moger <james.moger@gitblit.com>, Florian Zschocke <f.zsc
       org.label-schema.schema-version="1.0" \
       org.label-schema.name="gitblit" \
       org.label-schema.description="Gitblit is an open-source, pure Java stack for managing, viewing, and serving Git repositories." \
-      org.label-schema.url="http://gitblit.com" \
+      org.label-schema.url="http://www.gitblit.com" \
       org.label-schema.version="${GITBLIT_VERSION}" \
       org.opencontainers.image.title="gitblit" \
       org.opencontainers.image.description="Gitblit is an open-source, pure Java stack for managing, viewing, and serving Git repositories." \
-      org.opencontainers.image.url="http://gitblit.com" \
+      org.opencontainers.image.url="http://www.gitblit.com" \
       org.opencontainers.image.source="https://github.com/gitblit-org/gitblit-docker" \
       org.opencontainers.image.documentation="https://github.com/gitblit-org/gitblit-docker/blob/master/hub-readme.md" \
       org.opencontainers.image.version="${GITBLIT_VERSION}"
@@ -436,7 +436,7 @@ LABEL maintainer="James Moger <james.moger@gitblit.com>, Florian Zschocke <f.zsc
       org.label-schema.schema-version="1.0" \
       org.label-schema.name="gitblit" \
       org.label-schema.description="Gitblit is an open-source, pure Java stack for managing, viewing, and serving Git repositories." \
-      org.label-schema.url="http://gitblit.com" \
+      org.label-schema.url="http://www.gitblit.com" \
       org.label-schema.version="${GITBLIT_VERSION}"
 
 

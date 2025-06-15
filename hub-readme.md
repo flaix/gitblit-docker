@@ -7,7 +7,7 @@ Gitblit can be used as a dumb repository viewer with no administrative controls 
 Gitblit can be used as a complete Git stack for cloning, pushing, and repository access control.
 Gitblit can be used without any other Git tooling or it can cooperate with your established tools.
 
-[https://gitblit.com](https://gitblit.com)
+[https://www.gitblit.com](https://www.gitblit.com)
 
 ![logo](https://github.com/gitblit-org/gitblit/raw/v1.9.0/src/main/resources/gitblt2.png)
 
