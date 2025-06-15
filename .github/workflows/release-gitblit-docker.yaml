@@ -27,7 +27,7 @@ on:
 
 env:
  GH_ORG: flaix
- GH_UPSTREAM_ORG: gitblit
+ GH_UPSTREAM_ORG: gitblit-org
 
 
 jobs:
@@ -316,7 +316,7 @@ jobs:
 
 
 
-# Since we are not working in the real gitblit/gitblit project, now upstream
+# Since we are not working in the real gitblit-org/gitblit project, now upstream
 # the release by pushing branches, tags and releases upstream.
 
   upstream:
@@ -349,7 +349,7 @@ jobs:
           ups_url=$(git remote get-url origin | sed -e 's;github.com/${{ env.GH_ORG }}/;github.com/${{ env.GH_UPSTREAM_ORG }}/;')
           git remote add upstream "$ups_url"
           git fetch --prune --depth=4 upstream +refs/heads/*:refs/remotes/upstream/*
-          
+
           echo "Push new master to upstream"
           git push upstream refs/remotes/origin/master:refs/heads/master
 
