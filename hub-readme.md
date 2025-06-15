@@ -128,7 +128,7 @@ Updating with anonymous volumes (no name provided for it) requires you to either
 
 The second option is to mount a local directory on the host into the container via a [bind mount](https://docs.docker.com/storage/bind-mounts/). Again, you can choose if you want all of the data in the host directory, or maybe just the configuration data, for easier editing, while the git data is stored in a docker data volume. (Or, vice versa, of course. Or, something completely different.)
 
-The container will copy the necessary configuration files, that Gitblit needs to run, into the directory. (While this is done automatically by docker for data volumes, it has to be done explicitly by the container for a bind mount volume.) Existing data is not overwritten (except for the `defaults.properties`file, use this only for reference). The start script will also change ownership of the directory and files to the `gitblit`user because the server process will need to be able to read them and write to some.
+The container will copy the necessary configuration files, that Gitblit needs to run, into the directory. (While this is done automatically by docker for data volumes, it has to be done explicitly by the container for a bind mount volume.) Existing data is not overwritten (except for the `defaults.properties`file, use this only for reference). The start script will also change ownership of the directory and files to the `gitblit` user because the server process will need to be able to read them and write to some.
 
 ```console
 $ sudo docker run -d --name gitblit -v /some/path/data:/var/opt/gitblit -p 8443:8443 gitblit/gitblit
@@ -214,7 +214,7 @@ $ sudo docker run -d --name gitblit -e "GITBLIT_RPC=off"  -p 8443:8443 gitblit/g
 
 ##### JVM options `JAVA_OPTS`
 
-The gitblit server starts by default with the JVM option `-Xmx1024M`. You can override this by providing the `JAVA_OPTS` environment variable.
+The Gitblit server starts by default with the JVM option `-Xmx1024M`. You can override this by providing the `JAVA_OPTS` environment variable.
 
 ```console
 $ sudo docker run -d --name gitblit -e "JAVA_OPTS=-Xmx2048m"  -p 8443:8443 gitblit/gitblit
@@ -225,7 +225,7 @@ $ sudo docker run -d --name gitblit -e "JAVA_OPTS=-Xmx2048m"  -p 8443:8443 gitbl
 
 ## User and group id
 
-Since image version 1.9.0-3 the gitblit process will be started as a non privileged user. The user id and group id used by the images are both `8117`.
+Since image version 1.9.0-3 the Gitblit process will be started as a non privileged user. The user id and group id used by the images are both `8117`.
 
 ```console
 $ docker run -it --rm gitblit id gitblit
